@@ -4,6 +4,7 @@
 
 #include "wifi/main.h"
 #include "wifi/DeauthAttack.h"
+#include "wifi/BruteForceAttack.h"
 #include "infrared/AirConditioner.h"
 #include "infrared/Television.h"
 #include "infrared/main.h"
@@ -15,7 +16,6 @@
 
 uint8_t machineState = 0;
 uint8_t actualItem = 0;
-u64_t lastTime = 0;
 uint8_t attackType = 0;
 
 
@@ -32,25 +32,26 @@ uint8_t screen_infrared(uint8_t backTo);
 uint8_t screen_infrared_television(uint8_t backTo);
 uint8_t screen_infrared_airConditioner(uint8_t backTo);
 uint8_t screen_brightness(uint8_t backTo);
+uint8_t screen_wifi_pmkidAttack(uint8_t backTo);
 
 
 
 void setup() {
 	auto configures = M5.config();
 	M5Cardputer.begin(configures, true);
-	Serial.begin(115200);
 
 	initSDCard();
 	initColors();
 	initInfrared();
-
-	drawSetupScreen();
-
+	initWiFi();
+	initScreen();
 }
 
 void loop () {
 	M5Cardputer.update();
 	M5Cardputer.Display.fillScreen(backgroundColor);
+	resetInactivityTime();
+	actualItem = 0;
 
 	switch (machineState) {
 		case 0: machineState = screen_home(0); break;
@@ -65,6 +66,7 @@ void loop () {
 		case 9: machineState = screen_infrared_television(8); break;
 		case 10: machineState = screen_infrared_airConditioner(8); break;
 		case 11: machineState = screen_brightness(1); break;
+		case 12: machineState = screen_wifi_pmkidAttack(6); break;
 		default: machineState = 0; break;
 	}
 
@@ -190,13 +192,14 @@ uint8_t screen_backgroundColor(uint8_t backTo) {
 
 uint8_t screen_wifi(uint8_t backTo) {
 	String menuTitle = "Wi-Fi";
-	String menuItems[] = {"DeAuth Attack"};
-	uint8_t menuItemsLength = 1;
+	String menuItems[] = {"DeAuth Attack", "PMKID Attack"};
+	uint8_t menuItemsLength = 2;
 
 	menuScreen(menuTitle, menuItems, menuItemsLength);
 
 	switch (actualItem) {
 		case 0: attackType = 0; return 6;
+		case 1: attackType = 1; return 6;
 		case 255: return backTo;
 		default: return 0;
 	}
@@ -225,6 +228,7 @@ uint8_t screen_selectNetwork(uint8_t backTo) {
 	if (actualItem < menuItemsLength) {
 		switch (attackType) {
 			case 0: return 7;
+			case 1: return 12;
 			default: return 0;
 		}
 	}
@@ -235,7 +239,6 @@ uint8_t screen_selectNetwork(uint8_t backTo) {
 
 
 uint8_t screen_wifi_deauth(uint8_t backTo) {
-	actualItem = 0;
 	M5Cardputer.Display.setTextSize(3);
 	M5Cardputer.Display.setTextColor(titleColor, backgroundColor);
 	M5Cardputer.Display.drawString("DeAuth Attack", screenInitialX, screenInitialY);
@@ -243,9 +246,10 @@ uint8_t screen_wifi_deauth(uint8_t backTo) {
 
 	M5Cardputer.Display.setTextSize(2);
 	M5Cardputer.Display.drawString((char *) accessPointInfo.ssid, screenInitialX, (screenInitialY + 30));
+	
 	bool runAttack = false;
-
 	while (true) {
+		drawBatteryStatus();
 		M5Cardputer.update();
 		if (runAttack) {
 			M5Cardputer.Display.setTextColor(backgroundColor, textColor);
@@ -257,11 +261,11 @@ uint8_t screen_wifi_deauth(uint8_t backTo) {
 
 		if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
 			runAttack = !runAttack;
-			delay(200);
+			delay(buttonDelay);
 		}
 
 		if (M5Cardputer.Keyboard.isKeyPressed('`')) {
-			delay(200);
+			delay(buttonDelay);
 			return backTo;
 		}
 
@@ -318,9 +322,9 @@ uint8_t screen_infrared_airConditioner(uint8_t backTo) {
 	String menuItems[] = {"Power", "Temperature Up", "Temperature Down"};
 	uint8_t menuItemsLength = 3;
 
-	menuScreen(menuTitle, menuItems, menuItemsLength);
-
 	while (true) {
+		menuScreen(menuTitle, menuItems, menuItemsLength);
+		
 		switch (actualItem) {
 			case 0: airConditionerPower(); break;
 			case 1: airConditionerTemperatureUp(); break;
@@ -335,9 +339,9 @@ uint8_t screen_infrared_airConditioner(uint8_t backTo) {
 
 uint8_t screen_brightness(uint8_t backTo) {
 	String menuTitle = "Brightness";
-	String menuItems[] = {"Increase", "Decrease", "100%", "75%", "50%", "25%", "1%"};
+	String menuItems[] = {"Increase", "Decrease", "100%", "75%", "50%", "25%", "10%"};
 	uint8_t menuItemsLength = 7;
-
+	
 	while (true) {
 		menuScreen(menuTitle, menuItems, menuItemsLength);
 		int16_t brightness = screenBrightness;
@@ -358,9 +362,49 @@ uint8_t screen_brightness(uint8_t backTo) {
 			case 3: saveBrightness((String) 192); break;
 			case 4: saveBrightness((String) 128); break;
 			case 5: saveBrightness((String) 64); break;
-			case 6: saveBrightness((String) 1); break;
+			case 6: saveBrightness((String) 26); break;
 			case 255: return backTo;
 			default: return 0;
+		}
+	}
+}
+
+
+
+uint8_t screen_wifi_pmkidAttack(uint8_t backTo) {
+	M5Cardputer.Display.setTextSize(3);
+	M5Cardputer.Display.setTextColor(titleColor, backgroundColor);
+	M5Cardputer.Display.drawString("PMKID Attack", screenInitialX, screenInitialY);
+	M5Cardputer.Display.setTextColor(textColor, backgroundColor);
+
+	M5Cardputer.Display.setTextSize(2);
+	M5Cardputer.Display.drawString((char *) accessPointInfo.ssid, screenInitialX, (screenInitialY + 30));
+	
+	bool runAttack = false;
+	while (true) {
+		drawBatteryStatus();
+		M5Cardputer.update();
+		M5Cardputer.Display.setTextColor(backgroundColor, textColor);
+		M5Cardputer.Display.drawString("Start Attack       ", screenInitialX, (screenInitialY + 60));
+
+		if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
+			M5Cardputer.Display.setTextColor(backgroundColor, textColor);
+			M5Cardputer.Display.drawString("Running        ", screenInitialX, (screenInitialY + 60)); delay(200);
+			M5Cardputer.Display.drawString("Running.       ", screenInitialX, (screenInitialY + 60)); delay(200);
+			M5Cardputer.Display.drawString("Running..      ", screenInitialX, (screenInitialY + 60)); delay(200);
+			M5Cardputer.Display.drawString("Running...     ", screenInitialX, (screenInitialY + 60));
+			u64_t startTime = millis();
+			while (millis() - startTime < 3000) {
+				deauthAttack();
+				delay(10);
+			}
+			bruteForceAttack(1);
+			delay(buttonDelay);
+		}
+
+		if (M5Cardputer.Keyboard.isKeyPressed('`')) {
+			delay(buttonDelay);
+			return backTo;
 		}
 	}
 }

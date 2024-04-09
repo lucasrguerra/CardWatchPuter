@@ -2,11 +2,17 @@
 
 
 
-uint16_t scanWiFi() {
+void initWiFi() {
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-	esp_wifi_init(&cfg);
-	esp_wifi_set_mode(WIFI_MODE_STA);
-	esp_wifi_start();
+    esp_wifi_init(&cfg);
+    esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_start();
+}
+
+
+
+uint16_t scanWiFi() {
 	wifi_scan_config_t scanConfig = {};
 	esp_wifi_scan_start(&scanConfig, true);
 

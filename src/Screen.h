@@ -5,30 +5,41 @@ extern uint16_t textColor;
 extern uint16_t backgroundColor;
 extern uint8_t machineState;
 extern uint8_t actualItem;
-extern u64_t lastTime;
 
 
 
 const uint8_t screenInitialX = 2;
 const uint8_t screenInitialY = 20;
 const uint16_t updateScreenTime = 100;
+const uint8_t buttonDelay = 200;
+u64_t updateLastTime;
+u64_t inactivityTime = 0;
+u16_t inactivityTimeLimit = 20000;
 
 
 
+void initScreen();
 void drawSetupScreen();
 void drawBatteryStatus();
+void resetInactivityTime();
 void updateScreen(String menuTitle, String menuItems[], uint8_t menuItemsLength, boolean &clearedScreen);
 void updateItem(boolean next, uint8_t menuItemsLength);
 void menuScreen(String menuTitle, String menuItems[], uint8_t menuItemsLength);
 
 
 
-void drawSetupScreen() {
+void initScreen() {
 	M5Cardputer.Display.setRotation(1);
-	M5Cardputer.Display.setTextSize(3);
 	M5Cardputer.Display.setCursor(0, 0);
 	M5Cardputer.Display.fillScreen(TFT_BLACK);
+	drawSetupScreen();
+}
 
+
+
+void drawSetupScreen() {
+	M5Cardputer.Display.setTextSize(3);
+	
 	for (uint8_t index = 0; index < 255; index++) {
 		uint32_t color = M5Cardputer.Display.color888(0, index, 0);
 		M5Cardputer.Display.setTextColor(color);
@@ -72,8 +83,18 @@ void drawBatteryStatus() {
 
 
 
+void resetInactivityTime() {
+	inactivityTime = millis();
+}
+
+
+
 void updateScreen(String menuTitle, String menuItems[], uint8_t menuItemsLength, boolean &clearedScreen) {
 	M5Cardputer.update();
+	if (millis() - inactivityTime >= inactivityTimeLimit) {
+		M5Cardputer.Power.deepSleep();
+	}
+
 	drawBatteryStatus();
 
 	uint8_t additionalIndex = 0;
@@ -133,23 +154,25 @@ void updateItem(boolean next, uint8_t menuItemsLength) {
 			actualItem = (menuItemsLength - 1);
 		}
 	}
-	delay(200);
+	delay(buttonDelay);
 }
 
 
 
 void menuScreen(String menuTitle, String menuItems[], uint8_t menuItemsLength) {
-	actualItem = 0;
-
 	boolean clearedScreen = false;
 	boolean selectedItem = false;
 	while (selectedItem == false) {
-		if (millis() - lastTime >= updateScreenTime) {
+		if (millis() - updateLastTime >= updateScreenTime) {
 			updateScreen(menuTitle, menuItems, menuItemsLength, clearedScreen);
-			lastTime = millis();
+			updateLastTime = millis();
 		}
 
+
 		M5Cardputer.update();
+		if (M5Cardputer.Keyboard.isChange()) {
+			resetInactivityTime();
+		}
 
 		if (M5Cardputer.Keyboard.isKeyPressed('.')) {
 			updateItem(true, menuItemsLength);
@@ -161,14 +184,14 @@ void menuScreen(String menuTitle, String menuItems[], uint8_t menuItemsLength) {
 
 		if (M5Cardputer.Keyboard.isKeyPressed(KEY_ENTER)) {
 			selectedItem = true;
-			delay(200);
+			delay(buttonDelay);
 		}
 
 		if (M5Cardputer.Keyboard.isKeyPressed('`')) {
 			selectedItem = true;
 			machineState = 0;
 			actualItem = 255;
-			delay(200);
+			delay(buttonDelay);
 		}
 	}
 }

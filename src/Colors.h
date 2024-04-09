@@ -69,7 +69,8 @@ void saveColor(uint16_t &variable, String colorName, const char * path) {
 
 void setBrightness(String brightness, uint8_t defaultBrightness = 255) {
 	int16_t testBrightness = brightness.toInt();
-	if (testBrightness > 0 && testBrightness <= 255) { screenBrightness = testBrightness; }
+	if (testBrightness > 10 && testBrightness <= 255) {screenBrightness = testBrightness; }
+	else if (testBrightness < 10) { screenBrightness = 10; }
 	else { screenBrightness = defaultBrightness; }
 	M5Cardputer.Display.setBrightness(screenBrightness);
 }

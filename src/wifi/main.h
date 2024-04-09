@@ -8,4 +8,5 @@ wifi_ap_record_t *acessPointsList;
 
 
 
+void initWiFi();
 uint16_t scanWiFi();
