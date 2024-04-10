@@ -39,6 +39,10 @@ uint8_t screen_wifi_pmkidAttack(uint8_t backTo);
 void setup() {
 	auto configures = M5.config();
 	M5Cardputer.begin(configures, true);
+	M5Cardputer.update();
+
+	Serial.begin(115200);
+	Serial.println("M5Cardputer started");
 
 	initSDCard();
 	initColors();
@@ -393,11 +397,6 @@ uint8_t screen_wifi_pmkidAttack(uint8_t backTo) {
 			M5Cardputer.Display.drawString("Running.       ", screenInitialX, (screenInitialY + 60)); delay(200);
 			M5Cardputer.Display.drawString("Running..      ", screenInitialX, (screenInitialY + 60)); delay(200);
 			M5Cardputer.Display.drawString("Running...     ", screenInitialX, (screenInitialY + 60));
-			u64_t startTime = millis();
-			while (millis() - startTime < 3000) {
-				deauthAttack();
-				delay(10);
-			}
 			bruteForceAttack(1);
 			delay(buttonDelay);
 		}

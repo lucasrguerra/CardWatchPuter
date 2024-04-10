@@ -92,7 +92,7 @@ void resetInactivityTime() {
 void updateScreen(String menuTitle, String menuItems[], uint8_t menuItemsLength, boolean &clearedScreen) {
 	M5Cardputer.update();
 	if (millis() - inactivityTime >= inactivityTimeLimit) {
-		M5Cardputer.Power.deepSleep();
+		M5Cardputer.Power.powerOff();
 	}
 
 	drawBatteryStatus();
